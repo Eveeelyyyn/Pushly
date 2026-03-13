@@ -307,11 +307,15 @@ http://tu-servidor/notificaciones_app
 
 ---
 
-💡 **Resultado**
+💡 **Ejemplos**
 
-Con esta configuración tendrás:
+# 1. Enviar un archivo PDF (Recibo/Reporte)
+curl.exe -u "admin_empresa:888" \
+     -T "C:/Users/%USERNAME%/Downloads/Recibo.pdf" \
+     -H "Filename: Recibo.pdf" \
+     http://192.168.7.217/ejemplo
 
-* servidor privado de notificaciones
-* autenticación de usuarios
-* control de acceso por tópicos
-* sistema listo para integrarse con aplicaciones móviles o backend.
+# 2. Enviar una notificación de texto simple
+curl.exe -u "admin_empresa:888" \
+     -d "Mensaje protegido: El sistema de alertas está activo" \
+     http://192.168.7.217/ejemplo
