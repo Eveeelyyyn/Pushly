@@ -53,9 +53,9 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
         <ImageView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" app:srcCompat="@drawable/ic_sms_gray_48dp"
-                android:id="@+id/detail_no_notifications_image"/>
+            android:id="@+id/ic_logo_detail_no"
+            android:layout_width="100dp"  android:layout_height="100dp"
+            android:layout_gravity="center_horizontal" app:srcCompat="@drawable/ic_logo_detail_no" />
         <TextView
                 android:id="@+id/detail_no_notifications_text"
                 android:text="@string/detail_no_notifications_text"
