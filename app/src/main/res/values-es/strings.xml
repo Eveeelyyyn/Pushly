@@ -22,7 +22,7 @@
 \n
 \n%2$s</string>
     <string name="refresh_message_error_one">No se pudo actualizar la suscripción: %1$s</string>
-    <string name="main_action_bar_title">Tópicos suscritos</string>
+    <string name="main_action_bar_title">Grupos Suscritos</string>
     <string name="main_menu_notifications_enabled">Notificaciones habilitadas</string>
     <string name="main_menu_docs_title">Lea la documentación</string>
     <string name="main_action_mode_menu_unsubscribe">Cancelar la suscripción</string>

@@ -1,0 +1,42 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="1080dp"
+    android:height="1920dp"
+    android:viewportWidth="1080"
+    android:viewportHeight="1920">
+
+    <!-- Fondo base -->
+    <path
+        android:fillColor="#2F8F7B"
+        android:pathData="M0,0h1080v1920h-1080z"/>
+
+    <!-- Forma diagonal superior -->
+    <path
+        android:fillColor="#3FAF96"
+        android:fillAlpha="0.45"
+        android:pathData="M0,0 L1080,0 L1080,520 Z"/>
+
+    <!-- Forma superior derecha -->
+    <path
+        android:fillColor="#63C1AC"
+        android:fillAlpha="0.40"
+        android:pathData="M1080,0 L1080,900 L550,0 Z"/>
+
+    <!-- Forma diagonal central -->
+    <path
+        android:fillColor="#48B39D"
+        android:fillAlpha="0.35"
+        android:pathData="M0,550 L1080,1000 L1080,1500 L0,1150 Z"/>
+
+    <!-- Forma curva inferior -->
+    <path
+        android:fillColor="#AEE3D6"
+        android:fillAlpha="0.40"
+        android:pathData="M0,1350 C320,1220 760,1420 1080,1620 L1080,1920 L0,1920 Z"/>
+
+    <!-- Curva inferior más clara -->
+    <path
+        android:fillColor="#D8F3EC"
+        android:fillAlpha="0.50"
+        android:pathData="M0,1500 C300,1450 800,1650 1080,1800 L1080,1920 L0,1920 Z"/>
+
+</vector>

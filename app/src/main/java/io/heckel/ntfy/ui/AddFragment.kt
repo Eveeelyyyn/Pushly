@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.appbar.MaterialToolbar
@@ -36,6 +37,15 @@ class AddFragment : DialogFragment(), TrustedCertificateFragment.TrustedCertific
     private lateinit var subscribeListener: SubscribeListener
     private lateinit var appBaseUrl: String
     private var defaultBaseUrl: String? = null
+
+    private val qrScanLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val scannedValue = result.data?.getStringExtra("SCAN_RESULT")
+            scannedValue?.let { handleQrResult(it) }
+        }
+    }
 
     private lateinit var toolbar: MaterialToolbar
     private lateinit var actionMenuItem: MenuItem
@@ -115,15 +125,37 @@ class AddFragment : DialogFragment(), TrustedCertificateFragment.TrustedCertific
         subscribeBaseUrlText = view.findViewById(R.id.add_dialog_subscribe_base_url_text)
         subscribeBaseUrlText.background = view.background
         subscribeBaseUrlText.hint = defaultBaseUrl ?: appBaseUrl
-        subscribeInstantDeliveryBox = view.findViewById(R.id.add_dialog_subscribe_instant_delivery_box)
-        subscribeInstantDeliveryCheckbox = view.findViewById(R.id.add_dialog_subscribe_instant_delivery_checkbox)
-        subscribeInstantDeliveryDescription = view.findViewById(R.id.add_dialog_subscribe_instant_delivery_description)
-        subscribeUseAnotherServerCheckbox = view.findViewById(R.id.add_dialog_subscribe_use_another_server_checkbox)
-        subscribeUseAnotherServerDescription = view.findViewById(R.id.add_dialog_subscribe_use_another_server_description)
-        subscribeForegroundDescription = view.findViewById(R.id.add_dialog_subscribe_foreground_description)
+        subscribeInstantDeliveryBox =
+            view.findViewById(R.id.add_dialog_subscribe_instant_delivery_box)
+        subscribeInstantDeliveryCheckbox =
+            view.findViewById(R.id.add_dialog_subscribe_instant_delivery_checkbox)
+        subscribeInstantDeliveryDescription =
+            view.findViewById(R.id.add_dialog_subscribe_instant_delivery_description)
+        subscribeUseAnotherServerCheckbox =
+            view.findViewById(R.id.add_dialog_subscribe_use_another_server_checkbox)
+        subscribeUseAnotherServerDescription =
+            view.findViewById(R.id.add_dialog_subscribe_use_another_server_description)
+        subscribeForegroundDescription =
+            view.findViewById(R.id.add_dialog_subscribe_foreground_description)
         subscribeProgress = view.findViewById(R.id.add_dialog_subscribe_progress)
         subscribeErrorText = view.findViewById(R.id.add_dialog_subscribe_error_text)
         subscribeErrorText.visibility = View.GONE
+
+        val scanQrCard = view.findViewById<View>(R.id.img_qr_code)
+
+        val swingAnim = android.view.animation.AnimationUtils.loadAnimation(requireContext(), R.anim.swing)
+        scanQrCard.startAnimation(swingAnim)
+
+        scanQrCard.setOnClickListener {
+            onScanQrClick()
+        }
+
+        val scanQrButton = view.findViewById<View>(R.id.btn_initiate_scan_trigger)
+
+        scanQrButton?.setOnClickListener {
+            onScanQrClick()
+        }
+
         subscribeErrorTextImage = view.findViewById(R.id.add_dialog_subscribe_error_text_image)
         subscribeErrorTextImage.visibility = View.GONE
 
@@ -135,7 +167,8 @@ class AddFragment : DialogFragment(), TrustedCertificateFragment.TrustedCertific
         loginErrorTextImage = view.findViewById(R.id.add_dialog_login_error_text_image)
 
         // Set foreground description text
-        subscribeForegroundDescription.text = getString(R.string.add_dialog_foreground_description, shortUrl(appBaseUrl))
+        subscribeForegroundDescription.text =
+            getString(R.string.add_dialog_foreground_description, shortUrl(appBaseUrl))
 
         // Show/hide based on flavor (faster shortcut for validateInputSubscribeView, which can only run onShow)
         if (!BuildConfig.FIREBASE_AVAILABLE) {
@@ -201,317 +234,442 @@ class AddFragment : DialogFragment(), TrustedCertificateFragment.TrustedCertific
 
     override fun onResume() {
         super.onResume()
-        // Show keyboard after the dialog is fully visible
-        subscribeTopicText.postDelayed({
-            subscribeTopicText.requestFocus()
-            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-            imm?.showSoftInput(subscribeTopicText, InputMethodManager.SHOW_IMPLICIT)
-        }, 200)
-    }
+}
 
-    private fun onActionButtonClick() {
-        val topic = subscribeTopicText.text.toString()
-        val baseUrl = getBaseUrl()
-        if (subscribeView.isVisible) {
-            checkReadAndMaybeShowLogin(baseUrl, topic)
-        } else if (loginView.isVisible) {
-            loginAndMaybeDismiss(baseUrl, topic)
-        }
-    }
+private fun onActionButtonClick() {
+val topic = subscribeTopicText.text.toString()
+val baseUrl = getBaseUrl()
+if (subscribeView.isVisible) {
+    checkReadAndMaybeShowLogin(baseUrl, topic)
+} else if (loginView.isVisible) {
+    loginAndMaybeDismiss(baseUrl, topic)
+}
+}
 
-    private fun checkReadAndMaybeShowLogin(baseUrl: String, topic: String) {
-        subscribeProgress.visibility = View.VISIBLE
-        subscribeErrorText.visibility = View.GONE
-        subscribeErrorTextImage.visibility = View.GONE
-        enableSubscribeView(false)
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val user = repository.getUser(baseUrl) // May be null
-                val authorized = api.checkAuth(baseUrl, topic, user)
-                if (authorized) {
-                    Log.d(TAG, "Access granted to topic ${topicUrl(baseUrl, topic)}")
-                    dismissDialog()
-                } else {
-                    if (user != null) {
-                        Log.w(TAG, "Access not allowed to topic ${topicUrl(baseUrl, topic)}, but user already exists")
-                        showErrorAndReenableSubscribeView(getString(R.string.add_dialog_login_error_not_authorized, user.username))
-                    } else {
-                        Log.w(TAG, "Access not allowed to topic ${topicUrl(baseUrl, topic)}, showing login dialog")
-                        val activity = activity ?: return@launch // We may have pressed "Cancel"
-                        activity.runOnUiThread {
-                            showLoginView(activity)
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "Connection to topic failed: ${e.message}", e)
-                
-                // If this is an SSL certificate error, show the trust cert dialog
-                // Never show the dialog for the app base URL
-                if (isSSLException(e) && baseUrl != appBaseUrl) {
-                    Log.d(TAG, "SSL certificate error detected, attempting to fetch certificate for user review")
-                    handleSSLException(baseUrl)
-                } else {
-                    showErrorAndReenableSubscribeView(e.message)
-                }
+private fun checkReadAndMaybeShowLogin(baseUrl: String, topic: String) {
+subscribeProgress.visibility = View.VISIBLE
+subscribeErrorText.visibility = View.GONE
+subscribeErrorTextImage.visibility = View.GONE
+enableSubscribeView(false)
+
+lifecycleScope.launch(Dispatchers.IO) {
+    try {
+        var user = repository.getUser(baseUrl)
+        var usingGlobalCredentials = false
+
+        if (user == null && baseUrl == appBaseUrl) {
+            val prefs = requireContext().getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+            val globalUser = prefs.getString("global_username", null)
+            val globalPass = prefs.getString("global_password", null)
+
+            if (!globalUser.isNullOrEmpty() && !globalPass.isNullOrEmpty()) {
+                user = User(baseUrl = baseUrl, username = globalUser, password = globalPass)
+                usingGlobalCredentials = true
             }
         }
-    }
-    
-    private fun isSSLException(e: Exception): Boolean {
-        var cause: Throwable? = e
-        while (cause != null) {
-            if (cause is SSLHandshakeException || cause is SSLPeerUnverifiedException || cause is CertificateException) {
-                return true
+
+        val authorized = api.checkAuth(baseUrl, topic, user)
+
+        if (authorized) {
+            Log.d(TAG, "Access granted to topic ${topicUrl(baseUrl, topic)}")
+
+            if (usingGlobalCredentials && user != null) {
+                repository.addUser(user)
             }
-            cause = cause.cause
-        }
-        return false
-    }
-    
-    private fun handleSSLException(baseUrl: String) {
-        // Try to fetch the server's certificate
-        val activity = activity ?: return
-        val certUtil = CertUtil.getInstance(requireContext())
-        val certificate = certUtil.fetchServerCertificate(baseUrl)
-        activity.runOnUiThread {
-            if (certificate != null) {
-                showCertificateTrustDialog(baseUrl, certificate)
+
+            dismissDialog()
+        } else {
+            if (user != null && !usingGlobalCredentials) {
+                showErrorAndReenableSubscribeView(
+                    getString(R.string.add_dialog_login_error_not_authorized, user.username)
+                )
             } else {
-                // Could not fetch certificate, show generic SSL error
-                showErrorAndReenableSubscribeView(getString(R.string.add_dialog_error_ssl_untrusted))
+                val activity = activity ?: return@launch
+                activity.runOnUiThread {
+                    showLoginView(activity)
+                }
             }
         }
+    } catch (e: Exception) {
+        if (isSSLException(e) && baseUrl != appBaseUrl) {
+            handleSSLException(baseUrl)
+        } else {
+            showErrorAndReenableSubscribeView(e.message)
+        }
     }
-    
-    private fun showCertificateTrustDialog(baseUrl: String, certificate: X509Certificate) {
-        subscribeProgress.visibility = View.GONE
-        enableSubscribeView(true)
-        
-        TrustedCertificateFragment
-            .newInstanceUnknown(certificate, baseUrl)
-            .show(childFragmentManager, TrustedCertificateFragment.TAG)
+}
+}
+
+private fun isSSLException(e: Exception): Boolean {
+var cause: Throwable? = e
+while (cause != null) {
+    if (cause is SSLHandshakeException || cause is SSLPeerUnverifiedException || cause is CertificateException) {
+        return true
     }
-    
-    // TrustedCertificateFragment.TrustedCertificateListener implementation
-    override fun onCertificateTrusted(certificate: X509Certificate) {
-        val baseUrl = getBaseUrl()
-        val topic = subscribeTopicText.text.toString()
-        Log.d(TAG, "Certificate trusted for $baseUrl, retrying connection")
-        checkReadAndMaybeShowLogin(baseUrl, topic)
-    }
-    
-    override fun onCertificateRejected() {
-        Log.d(TAG, "Certificate rejected by user")
+    cause = cause.cause
+}
+return false
+}
+
+private fun handleSSLException(baseUrl: String) {
+// Try to fetch the server's certificate
+val activity = activity ?: return
+val certUtil = CertUtil.getInstance(requireContext())
+val certificate = certUtil.fetchServerCertificate(baseUrl)
+activity.runOnUiThread {
+    if (certificate != null) {
+        showCertificateTrustDialog(baseUrl, certificate)
+    } else {
+        // Could not fetch certificate, show generic SSL error
         showErrorAndReenableSubscribeView(getString(R.string.add_dialog_error_ssl_untrusted))
     }
-    
-    override fun onCertificateDeleted() {
-        // Not used in AddFragment - this is only for the settings screen
-    }
+}
+}
 
-    private fun showErrorAndReenableSubscribeView(message: String?) {
-        val activity = activity ?: return // We may have pressed "Cancel"
-        activity.runOnUiThread {
-            subscribeProgress.visibility = View.GONE
-            subscribeErrorText.visibility = View.VISIBLE
-            subscribeErrorText.text = message
-            subscribeErrorTextImage.visibility = View.VISIBLE
-            enableSubscribeView(true)
+private fun showCertificateTrustDialog(baseUrl: String, certificate: X509Certificate) {
+subscribeProgress.visibility = View.GONE
+enableSubscribeView(true)
+
+TrustedCertificateFragment
+    .newInstanceUnknown(certificate, baseUrl)
+    .show(childFragmentManager, TrustedCertificateFragment.TAG)
+}
+
+// TrustedCertificateFragment.TrustedCertificateListener implementation
+override fun onCertificateTrusted(certificate: X509Certificate) {
+val baseUrl = getBaseUrl()
+val topic = subscribeTopicText.text.toString()
+Log.d(TAG, "Certificate trusted for $baseUrl, retrying connection")
+checkReadAndMaybeShowLogin(baseUrl, topic)
+}
+
+override fun onCertificateRejected() {
+Log.d(TAG, "Certificate rejected by user")
+showErrorAndReenableSubscribeView(getString(R.string.add_dialog_error_ssl_untrusted))
+}
+
+override fun onCertificateDeleted() {
+// Not used in AddFragment - this is only for the settings screen
+}
+
+private fun showErrorAndReenableSubscribeView(message: String?) {
+val activity = activity ?: return // We may have pressed "Cancel"
+activity.runOnUiThread {
+    subscribeProgress.visibility = View.GONE
+    subscribeErrorText.visibility = View.VISIBLE
+    subscribeErrorText.text = message
+    subscribeErrorTextImage.visibility = View.VISIBLE
+    enableSubscribeView(true)
+}
+}
+
+private fun loginAndMaybeDismiss(baseUrl: String, topic: String) {
+loginProgress.visibility = View.VISIBLE
+loginErrorText.visibility = View.GONE
+loginErrorTextImage.visibility = View.GONE
+enableLoginView(false)
+val user = User(
+    baseUrl = baseUrl,
+    username = loginUsernameText.text.toString(),
+    password = loginPasswordText.text.toString()
+)
+lifecycleScope.launch(Dispatchers.IO) {
+    Log.d(
+        TAG,
+        "Checking read access for user ${user.username} to topic ${
+            topicUrl(
+                baseUrl,
+                topic
+            )
+        }"
+    )
+    try {
+        val authorized = api.checkAuth(baseUrl, topic, user)
+        if (authorized) {
+            Log.d(
+                TAG,
+                "Access granted for user ${user.username} to topic ${
+                    topicUrl(
+                        baseUrl,
+                        topic
+                    )
+                }, adding to database"
+            )
+            repository.addUser(user)
+            dismissDialog()
+        } else {
+            Log.w(
+                TAG,
+                "Access not allowed for user ${user.username} to topic ${
+                    topicUrl(
+                        baseUrl,
+                        topic
+                    )
+                }"
+            )
+            showErrorAndReenableLoginView(
+                getString(
+                    R.string.add_dialog_login_error_not_authorized,
+                    user.username
+                )
+            )
         }
+    } catch (e: Exception) {
+        Log.w(TAG, "Connection to topic failed during login: ${e.message}", e)
+        showErrorAndReenableLoginView(e.message)
     }
+}
+}
 
-    private fun loginAndMaybeDismiss(baseUrl: String, topic: String) {
-        loginProgress.visibility = View.VISIBLE
-        loginErrorText.visibility = View.GONE
-        loginErrorTextImage.visibility = View.GONE
-        enableLoginView(false)
-        val user = User(
-            baseUrl = baseUrl,
-            username = loginUsernameText.text.toString(),
-            password = loginPasswordText.text.toString()
-        )
-        lifecycleScope.launch(Dispatchers.IO) {
-            Log.d(TAG, "Checking read access for user ${user.username} to topic ${topicUrl(baseUrl, topic)}")
-            try {
-                val authorized = api.checkAuth(baseUrl, topic, user)
-                if (authorized) {
-                    Log.d(TAG, "Access granted for user ${user.username} to topic ${topicUrl(baseUrl, topic)}, adding to database")
-                    repository.addUser(user)
-                    dismissDialog()
-                } else {
-                    Log.w(TAG, "Access not allowed for user ${user.username} to topic ${topicUrl(baseUrl, topic)}")
-                    showErrorAndReenableLoginView(getString(R.string.add_dialog_login_error_not_authorized, user.username))
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "Connection to topic failed during login: ${e.message}", e)
-                showErrorAndReenableLoginView(e.message)
+private fun showErrorAndReenableLoginView(message: String?) {
+val activity = activity ?: return // We may have pressed "Cancel"
+activity.runOnUiThread {
+    loginProgress.visibility = View.GONE
+    loginErrorText.visibility = View.VISIBLE
+    loginErrorText.text = message
+    loginErrorTextImage.visibility = View.VISIBLE
+    enableLoginView(true)
+}
+}
+
+private fun validateInputSubscribeView() {
+if (!this::actionMenuItem.isInitialized) return // As per crash seen in Google Play
+
+// Show/hide things: This logic is intentionally kept simple. Do not simplify "just because it's pretty".
+val instantToggleAllowed = if (!BuildConfig.FIREBASE_AVAILABLE) {
+    false
+} else if (subscribeUseAnotherServerCheckbox.isChecked && subscribeBaseUrlText.text.toString() == appBaseUrl) {
+    true
+} else if (!subscribeUseAnotherServerCheckbox.isChecked && defaultBaseUrl == null) {
+    true
+} else {
+    false
+}
+if (subscribeUseAnotherServerCheckbox.isChecked) {
+    subscribeUseAnotherServerDescription.visibility = View.VISIBLE
+    subscribeBaseUrlLayout.visibility = View.VISIBLE
+} else {
+    subscribeUseAnotherServerDescription.visibility = View.GONE
+    subscribeBaseUrlLayout.visibility = View.GONE
+}
+if (instantToggleAllowed) {
+    subscribeInstantDeliveryBox.visibility = View.VISIBLE
+    subscribeInstantDeliveryDescription.visibility =
+        if (subscribeInstantDeliveryCheckbox.isChecked) View.VISIBLE else View.GONE
+    subscribeForegroundDescription.visibility = View.GONE
+} else {
+    subscribeInstantDeliveryBox.visibility = View.GONE
+    subscribeInstantDeliveryDescription.visibility = View.GONE
+    subscribeForegroundDescription.visibility =
+        if (BuildConfig.FIREBASE_AVAILABLE) View.VISIBLE else View.GONE
+}
+
+// Enable/disable "Subscribe" button
+lifecycleScope.launch(Dispatchers.IO) {
+    val baseUrl = getBaseUrl()
+    val topic = subscribeTopicText.text.toString()
+    val subscription = repository.getSubscription(baseUrl, topic)
+
+    activity?.let {
+        it.runOnUiThread {
+            if (subscription != null || DISALLOWED_TOPICS.contains(topic)) {
+                actionMenuItem.isEnabled = false
+            } else if (subscribeUseAnotherServerCheckbox.isChecked) {
+                actionMenuItem.isEnabled = validTopic(topic) && validUrl(baseUrl)
+            } else {
+                actionMenuItem.isEnabled = validTopic(topic)
             }
         }
     }
+}
+}
 
-    private fun showErrorAndReenableLoginView(message: String?) {
-        val activity = activity ?: return // We may have pressed "Cancel"
-        activity.runOnUiThread {
-            loginProgress.visibility = View.GONE
-            loginErrorText.visibility = View.VISIBLE
-            loginErrorText.text = message
-            loginErrorTextImage.visibility = View.VISIBLE
-            enableLoginView(true)
-        }
+private fun validateInputLoginView() {
+if (!this::actionMenuItem.isInitialized || !this::loginUsernameText.isInitialized || !this::loginPasswordText.isInitialized) {
+    return // As per crash seen in Google Play
+}
+if (loginUsernameText.isGone) {
+    actionMenuItem.isEnabled = true
+} else {
+    actionMenuItem.isEnabled = (loginUsernameText.text?.isNotEmpty() ?: false)
+            && (loginPasswordText.text?.isNotEmpty() ?: false)
+}
+}
+
+private fun dismissDialog() {
+Log.d(TAG, "Closing dialog and calling onSubscribe handler")
+val activity = activity ?: return // We may have pressed "Cancel"
+activity.runOnUiThread {
+    val baseUrl = getBaseUrl()
+    val topic = subscribeTopicText.text.toString()
+    val instant =
+        !BuildConfig.FIREBASE_AVAILABLE || baseUrl != appBaseUrl || subscribeInstantDeliveryCheckbox.isChecked
+    subscribeListener.onSubscribe(topic, baseUrl, instant)
+    dialog?.dismiss()
+}
+}
+
+private fun getBaseUrl(): String {
+return if (subscribeUseAnotherServerCheckbox.isChecked) {
+    subscribeBaseUrlText.text.toString()
+} else {
+    return defaultBaseUrl ?: appBaseUrl
+}
+}
+
+private fun showSubscribeView() {
+resetSubscribeView()
+toolbar.setTitle(R.string.add_dialog_title)
+actionMenuItem.setTitle(R.string.add_dialog_button_subscribe)
+toolbar.setNavigationOnClickListener {
+    dismiss()
+}
+loginView.visibility = View.GONE
+subscribeView.visibility = View.VISIBLE
+if (subscribeTopicText.requestFocus()) {
+    val imm =
+        activity?.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+    imm?.showSoftInput(subscribeTopicText, InputMethodManager.SHOW_IMPLICIT)
+}
+}
+
+private fun showLoginView(activity: Activity) {
+resetLoginView()
+loginProgress.visibility = View.INVISIBLE
+toolbar.setTitle(R.string.add_dialog_login_title)
+actionMenuItem.setTitle(R.string.add_dialog_button_login)
+toolbar.setNavigationOnClickListener {
+    showSubscribeView()
+}
+subscribeView.visibility = View.GONE
+loginView.visibility = View.VISIBLE
+if (loginUsernameText.requestFocus()) {
+    val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+    imm?.showSoftInput(loginUsernameText, InputMethodManager.SHOW_IMPLICIT)
+}
+}
+
+private fun enableSubscribeView(enable: Boolean) {
+subscribeTopicText.isEnabled = enable
+subscribeBaseUrlText.isEnabled = enable
+subscribeInstantDeliveryCheckbox.isEnabled = enable
+subscribeUseAnotherServerCheckbox.isEnabled = enable
+actionMenuItem.isEnabled = enable
+}
+
+private fun resetSubscribeView() {
+subscribeProgress.visibility = View.GONE
+subscribeErrorText.visibility = View.GONE
+subscribeErrorTextImage.visibility = View.GONE
+enableSubscribeView(true)
+}
+
+private fun enableLoginView(enable: Boolean) {
+loginUsernameText.isEnabled = enable
+loginPasswordText.isEnabled = enable
+actionMenuItem.isEnabled = enable
+if (enable && loginUsernameText.requestFocus()) {
+    val imm =
+        activity?.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+    imm?.showSoftInput(loginUsernameText, InputMethodManager.SHOW_IMPLICIT)
+}
+}
+
+private fun resetLoginView() {
+loginProgress.visibility = View.GONE
+loginErrorText.visibility = View.GONE
+loginErrorTextImage.visibility = View.GONE
+loginUsernameText.visibility = View.VISIBLE
+loginUsernameText.text?.clear()
+loginPasswordText.visibility = View.VISIBLE
+loginPasswordText.text?.clear()
+enableLoginView(true)
+}
+
+// Funcion del codigo QR
+private fun handleQrResult(scannedData: String) {
+val topic = extractTopicFromQr(scannedData)
+val serverUrlFromQr = extractServerFromQr(scannedData)
+
+if (topic != null) {
+    subscribeTopicText.setText(topic)
+
+    val currentBase = defaultBaseUrl ?: appBaseUrl
+    if (serverUrlFromQr != null && serverUrlFromQr.trimEnd('/') != currentBase.trimEnd('/')) {
+        subscribeUseAnotherServerCheckbox.isChecked = true
+        subscribeBaseUrlText.setText(serverUrlFromQr)
+    } else {
+        subscribeUseAnotherServerCheckbox.isChecked = false
     }
+    onActionButtonClick()
 
-    private fun validateInputSubscribeView() {
-        if (!this::actionMenuItem.isInitialized) return // As per crash seen in Google Play
+} else {
+    Toast.makeText(requireContext(), "Código QR no válido", Toast.LENGTH_SHORT).show()
+}
+}
 
-        // Show/hide things: This logic is intentionally kept simple. Do not simplify "just because it's pretty".
-        val instantToggleAllowed = if (!BuildConfig.FIREBASE_AVAILABLE) {
-            false
-        } else if (subscribeUseAnotherServerCheckbox.isChecked && subscribeBaseUrlText.text.toString() == appBaseUrl) {
-            true
-        } else if (!subscribeUseAnotherServerCheckbox.isChecked && defaultBaseUrl == null) {
-            true
-        } else {
-            false
+private fun extractTopicFromQr(data: String): String? {
+return try {
+    when {
+        data.startsWith("http://") || data.startsWith("https://") -> {
+            val uri = android.net.Uri.parse(data)
+            uri.pathSegments.lastOrNull()
         }
-        if (subscribeUseAnotherServerCheckbox.isChecked) {
-            subscribeUseAnotherServerDescription.visibility = View.VISIBLE
-            subscribeBaseUrlLayout.visibility = View.VISIBLE
-        } else {
-            subscribeUseAnotherServerDescription.visibility = View.GONE
-            subscribeBaseUrlLayout.visibility = View.GONE
-        }
-        if (instantToggleAllowed) {
-            subscribeInstantDeliveryBox.visibility = View.VISIBLE
-            subscribeInstantDeliveryDescription.visibility = if (subscribeInstantDeliveryCheckbox.isChecked) View.VISIBLE else View.GONE
-            subscribeForegroundDescription.visibility = View.GONE
-        } else {
-            subscribeInstantDeliveryBox.visibility = View.GONE
-            subscribeInstantDeliveryDescription.visibility = View.GONE
-            subscribeForegroundDescription.visibility = if (BuildConfig.FIREBASE_AVAILABLE) View.VISIBLE else View.GONE
-        }
-
-        // Enable/disable "Subscribe" button
-        lifecycleScope.launch(Dispatchers.IO) {
-            val baseUrl = getBaseUrl()
-            val topic = subscribeTopicText.text.toString()
-            val subscription = repository.getSubscription(baseUrl, topic)
-
-            activity?.let {
-                it.runOnUiThread {
-                    if (subscription != null || DISALLOWED_TOPICS.contains(topic)) {
-                        actionMenuItem.isEnabled = false
-                    } else if (subscribeUseAnotherServerCheckbox.isChecked) {
-                        actionMenuItem.isEnabled = validTopic(topic) && validUrl(baseUrl)
-                    } else {
-                        actionMenuItem.isEnabled = validTopic(topic)
-                    }
-                }
-            }
-        }
+        data.matches(Regex("[a-zA-Z0-9_-]+")) -> data
+        else -> null
     }
+} catch (e: Exception) { null }
+}
 
-    private fun validateInputLoginView() {
-        if (!this::actionMenuItem.isInitialized || !this::loginUsernameText.isInitialized || !this::loginPasswordText.isInitialized) {
-            return // As per crash seen in Google Play
-        }
-        if (loginUsernameText.isGone) {
-            actionMenuItem.isEnabled = true
-        } else {
-            actionMenuItem.isEnabled = (loginUsernameText.text?.isNotEmpty() ?: false)
-                    && (loginPasswordText.text?.isNotEmpty() ?: false)
-        }
-    }
+private fun extractServerFromQr(data: String): String? {
+return try {
+    if (data.startsWith("http://") || data.startsWith("https://")) {
+        val uri = android.net.Uri.parse(data)
+        "${uri.scheme}://${uri.authority}"
+    } else null
+} catch (e: Exception) { null }
+}
 
-    private fun dismissDialog() {
-        Log.d(TAG, "Closing dialog and calling onSubscribe handler")
-        val activity = activity?: return // We may have pressed "Cancel"
-        activity.runOnUiThread {
-            val baseUrl = getBaseUrl()
-            val topic = subscribeTopicText.text.toString()
-            val instant = !BuildConfig.FIREBASE_AVAILABLE || baseUrl != appBaseUrl || subscribeInstantDeliveryCheckbox.isChecked
-            subscribeListener.onSubscribe(topic, baseUrl, instant)
-            dialog?.dismiss()
-        }
-    }
+private fun onScanQrClick() {
+if (androidx.core.content.ContextCompat.checkSelfPermission(
+        requireContext(), android.Manifest.permission.CAMERA
+    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+) {
+    launchQrScanner()
+} else {
+    requestPermissions(arrayOf(android.Manifest.permission.CAMERA), CAMERA_PERMISSION_REQUEST_CODE)
+}
+}
 
-    private fun getBaseUrl(): String {
-        return if (subscribeUseAnotherServerCheckbox.isChecked) {
-            subscribeBaseUrlText.text.toString()
-        } else {
-            return defaultBaseUrl ?: appBaseUrl
-        }
-    }
+private fun launchQrScanner() {
+val intent = com.google.zxing.integration.android.IntentIntegrator.forSupportFragment(this).apply {
+    setDesiredBarcodeFormats(com.google.zxing.integration.android.IntentIntegrator.QR_CODE)
+    setPrompt("Escanea el QR de un grupo de ntfy")
+    setBeepEnabled(true)
+    setOrientationLocked(false)
+    setCaptureActivity(CustomScannerActivity::class.java)
+}.createScanIntent()
+qrScanLauncher.launch(intent)
+}
 
-    private fun showSubscribeView() {
-        resetSubscribeView()
-        toolbar.setTitle(R.string.add_dialog_title)
-        actionMenuItem.setTitle(R.string.add_dialog_button_subscribe)
-        toolbar.setNavigationOnClickListener {
-            dismiss()
-        }
-        loginView.visibility = View.GONE
-        subscribeView.visibility = View.VISIBLE
-        if (subscribeTopicText.requestFocus()) {
-            val imm = activity?.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-            imm?.showSoftInput(subscribeTopicText, InputMethodManager.SHOW_IMPLICIT)
-        }
+override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
+    if (grantResults.isNotEmpty() && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        launchQrScanner()
     }
+}
+}
+// -------------------------------------------------------------------------------------------
 
-    private fun showLoginView(activity: Activity) {
-        resetLoginView()
-        loginProgress.visibility = View.INVISIBLE
-        toolbar.setTitle(R.string.add_dialog_login_title)
-        actionMenuItem.setTitle(R.string.add_dialog_button_login)
-        toolbar.setNavigationOnClickListener {
-            showSubscribeView()
-        }
-        subscribeView.visibility = View.GONE
-        loginView.visibility = View.VISIBLE
-        if (loginUsernameText.requestFocus()) {
-            val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-            imm?.showSoftInput(loginUsernameText, InputMethodManager.SHOW_IMPLICIT)
-        }
-    }
+companion object {
+const val TAG = "NtfyAddFragment"
 
-    private fun enableSubscribeView(enable: Boolean) {
-        subscribeTopicText.isEnabled = enable
-        subscribeBaseUrlText.isEnabled = enable
-        subscribeInstantDeliveryCheckbox.isEnabled = enable
-        subscribeUseAnotherServerCheckbox.isEnabled = enable
-        actionMenuItem.isEnabled = enable
-    }
+// Agregue esto: ------------------------------------
 
-    private fun resetSubscribeView() {
-        subscribeProgress.visibility = View.GONE
-        subscribeErrorText.visibility = View.GONE
-        subscribeErrorTextImage.visibility = View.GONE
-        enableSubscribeView(true)
-    }
+private const val CAMERA_PERMISSION_REQUEST_CODE = 1001
+private val DISALLOWED_TOPICS =
+    listOf("docs", "static", "file") // If updated, also update in server
+}
 
-    private fun enableLoginView(enable: Boolean) {
-        loginUsernameText.isEnabled = enable
-        loginPasswordText.isEnabled = enable
-        actionMenuItem.isEnabled = enable
-        if (enable && loginUsernameText.requestFocus()) {
-            val imm = activity?.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-            imm?.showSoftInput(loginUsernameText, InputMethodManager.SHOW_IMPLICIT)
-        }
-    }
 
-    private fun resetLoginView() {
-        loginProgress.visibility = View.GONE
-        loginErrorText.visibility = View.GONE
-        loginErrorTextImage.visibility = View.GONE
-        loginUsernameText.visibility = View.VISIBLE
-        loginUsernameText.text?.clear()
-        loginPasswordText.visibility = View.VISIBLE
-        loginPasswordText.text?.clear()
-        enableLoginView(true)
-    }
-
-    companion object {
-        const val TAG = "NtfyAddFragment"
-        private val DISALLOWED_TOPICS = listOf("docs", "static", "file") // If updated, also update in server
-    }
 }

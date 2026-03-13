@@ -6,6 +6,7 @@ import android.animation.AnimatorListenerAdapter
 import android.app.AlarmManager
 import android.app.AlertDialog
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -131,7 +132,29 @@ class MainActivity : AppCompatActivity(), AddFragment.SubscribeListener, Notific
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+
+
         setContentView(R.layout.activity_main)
+
+        // --- CÓDIGO NUEVO PARA EL LOGIN INICIAL ---
+        //val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        //if (prefs.getString("global_username", null) == null) {
+        //    val fragment = UserFragment()
+        //    fragment.show(supportFragmentManager, "UserFragment")
+        //}
+        // ------------------------------------------
+
+        // Verificar si ya tenemos credenciales guardadas
+        val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        val globalUser = prefs.getString("global_username", null)
+
+        // Si no hay usuario guardado, redirigir al Login inmediatamente
+        if (globalUser.isNullOrEmpty()) {
+            val intent = Intent(this, LoginActivity::class.java)
+            startActivity(intent)
+            finish() // Cerramos MainActivity para que no cargue el resto de la interfaz
+            return // Salimos del onCreate
+        }
 
         Log.init(this) // Init logs in all entry points
         Log.d(TAG, "Create $this")
@@ -143,19 +166,33 @@ class MainActivity : AppCompatActivity(), AddFragment.SubscribeListener, Notific
 
         // Action bar
         val toolbarLayout = findViewById<AppBarLayout>(R.id.app_bar_drawer)
+
+        // Forzar la barra transparente
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+
+        // Aplicar el padding superior para empujar el texto hacia abajo
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(toolbarLayout) { view, insets ->
+            val systemBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+
+            // Esto agrega un "relleno" superior del tamaño exacto de la barra de estado
+            view.setPadding(0, systemBars.top, 0, 0)
+
+            insets
+        }
+
         val dynamicColors = repository.getDynamicColorsEnabled()
         val darkMode = isDarkThemeOn(this)
         val statusBarColor = Colors.statusBarNormal(this, dynamicColors, darkMode)
         val toolbarTextColor = Colors.toolbarTextColor(this, dynamicColors, darkMode)
-        toolbarLayout.setBackgroundColor(statusBarColor)
-        
+        toolbarLayout.setBackgroundResource(R.drawable.bg_top_bar)
+
         val toolbar = toolbarLayout.findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
         toolbar.setTitleTextColor(toolbarTextColor)
         toolbar.setNavigationIconTint(toolbarTextColor)
         toolbar.overflowIcon?.setTint(toolbarTextColor)
         setSupportActionBar(toolbar)
         title = getString(R.string.main_action_bar_title)
-        
+
         // Set system status bar appearance
         WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars =
             Colors.shouldUseLightStatusBar(dynamicColors, darkMode)
@@ -165,12 +202,16 @@ class MainActivity : AppCompatActivity(), AddFragment.SubscribeListener, Notific
         fab.setOnClickListener {
             onSubscribeButtonClick()
         }
-        
+
         // Add bottom padding to FAB to account for navigation bar
         ViewCompat.setOnApplyWindowInsetsListener(fab) { view, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val layoutParams = view.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            layoutParams.bottomMargin = systemBars.bottom
+
+            // Convertimos 24dp a píxeles y se lo sumamos al padding del sistema
+            val margin24dp = (50 * resources.displayMetrics.density).toInt()
+            layoutParams.bottomMargin = systemBars.bottom + margin24dp
+
             view.layoutParams = layoutParams
             insets
         }
@@ -182,6 +223,10 @@ class MainActivity : AppCompatActivity(), AddFragment.SubscribeListener, Notific
 
         // Update main list based on viewModel (& its datasource/livedata)
         val noEntries: View = findViewById(R.id.main_no_subscriptions)
+
+        val cardSummary: View = findViewById(R.id.main_card_summary)
+        val cardTopics: View = findViewById(R.id.main_card_topics)
+
         val onSubscriptionClick = { s: Subscription -> onSubscriptionItemClick(s) }
         val onSubscriptionLongClick = { s: Subscription -> onSubscriptionItemLongClick(s) }
 
@@ -196,7 +241,7 @@ class MainActivity : AppCompatActivity(), AddFragment.SubscribeListener, Notific
             Colors.onPrimary(this)
         )
         mainList.adapter = adapter
-        
+
         // Apply window insets to ensure content is not covered by navigation bar
         mainList.clipToPadding = false
         ViewCompat.setOnApplyWindowInsetsListener(mainList) { v, insets ->
@@ -207,23 +252,43 @@ class MainActivity : AppCompatActivity(), AddFragment.SubscribeListener, Notific
 
         viewModel.list().observe(this) {
             it?.let { subscriptions ->
-                // Update main list
+                // 1. Actualizar la lista
                 adapter.submitList(subscriptions as MutableList<Subscription>)
+
+                // 2. Controlar la visibilidad de las vistas
                 if (it.isEmpty()) {
                     mainListContainer.visibility = View.GONE
+                    cardSummary.visibility = View.GONE
+                    cardTopics.visibility = View.GONE
                     noEntries.visibility = View.VISIBLE
                 } else {
                     mainListContainer.visibility = View.VISIBLE
+                    cardSummary.visibility = View.VISIBLE
+                    cardTopics.visibility = View.VISIBLE
                     noEntries.visibility = View.GONE
                 }
 
-                // Add scrub terms to log (in case it gets exported)
+                // --- NUEVO: Lógica para calcular y actualizar el Resumen de Notificaciones ---
+                var totalPending = 0
+                val summaryCountText = findViewById<TextView>(R.id.main_summary_count)
+                val summaryTodayText = findViewById<TextView>(R.id.main_summary_today)
+
                 subscriptions.forEach { s ->
+                    totalPending += s.newCount
                     Log.addScrubTerm(shortUrl(s.baseUrl), Log.TermType.Domain)
                     Log.addScrubTerm(s.topic)
                 }
 
-                // Update battery banner + WebSocket banner + websocket reconnect banner
+                summaryCountText.text = totalPending.toString()
+                summaryTodayText.text = "+$totalPending Total hoy"
+
+                if (totalPending > 0) {
+                    summaryCountText.backgroundTintList = android.content.res.ColorStateList.valueOf(Colors.primary(this@MainActivity))
+                    summaryCountText.setTextColor(android.graphics.Color.WHITE)
+                } else {
+                    summaryCountText.backgroundTintList = null // Vuelve al color gris de tu drawable original
+                }
+
                 showHideBatteryBanner(subscriptions)
                 showHideWebSocketBanner(subscriptions)
                 showHideWebSocketReconnectBanner()
@@ -486,13 +551,13 @@ class MainActivity : AppCompatActivity(), AddFragment.SubscribeListener, Notific
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu_main_action_bar, menu)
         this.menu = menu
-        
+
         // Tint menu icons based on theme
         val toolbarTextColor = Colors.toolbarTextColor(this, repository.getDynamicColorsEnabled(), isDarkThemeOn(this))
         for (i in 0 until menu.size) {
             menu[i].icon?.setTint(toolbarTextColor)
         }
-        
+
         showHideNotificationMenuItems()
         showHideConnectionErrorMenuItem(repository.getConnectionDetails())
         checkSubscriptionsMuted() // This is done here, because then we know that we've initialized the menu
@@ -536,15 +601,7 @@ class MainActivity : AppCompatActivity(), AddFragment.SubscribeListener, Notific
         }
         val mutedUntilSeconds = repository.getGlobalMutedUntil()
         runOnUiThread {
-            // Show/hide menu items based on build config
-            val rateAppItem = menu.findItem(R.id.main_menu_rate)
-            val docsItem = menu.findItem(R.id.main_menu_docs)
-            val reportBugItem = menu.findItem(R.id.main_menu_report_bug)
-            rateAppItem.isVisible = BuildConfig.RATE_APP_AVAILABLE
-            docsItem.isVisible = BuildConfig.PAYMENT_LINKS_AVAILABLE // Google Payments Policy, see https://github.com/binwiederhier/ntfy/issues/1463
-            reportBugItem.isVisible = BuildConfig.PAYMENT_LINKS_AVAILABLE // Google Payments Policy, see https://github.com/binwiederhier/ntfy/issues/1463
 
-            // Pause notification icons
             val notificationsEnabledItem = menu.findItem(R.id.main_menu_notifications_enabled)
             val notificationsDisabledUntilItem = menu.findItem(R.id.main_menu_notifications_disabled_until)
             val notificationsDisabledForeverItem = menu.findItem(R.id.main_menu_notifications_disabled_forever)
@@ -589,30 +646,6 @@ class MainActivity : AppCompatActivity(), AddFragment.SubscribeListener, Notific
             }
             R.id.main_menu_settings -> {
                 startActivity(Intent(this, SettingsActivity::class.java))
-                true
-            }
-            R.id.main_menu_report_bug -> {
-                startActivity(
-                    Intent(Intent.ACTION_VIEW, getString(R.string.main_menu_report_bug_url).toUri())
-                )
-                true
-            }
-            R.id.main_menu_rate -> {
-                try {
-                    startActivity(
-                        Intent(Intent.ACTION_VIEW, "market://details?id=$packageName".toUri())
-                    )
-                } catch (_: ActivityNotFoundException) {
-                    startActivity(
-                        Intent(Intent.ACTION_VIEW, "https://play.google.com/store/apps/details?id=$packageName".toUri())
-                    )
-                }
-                true
-            }
-            R.id.main_menu_docs -> {
-                startActivity(
-                    Intent(Intent.ACTION_VIEW, getString(R.string.main_menu_docs_url).toUri())
-                )
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -815,7 +848,7 @@ class MainActivity : AppCompatActivity(), AddFragment.SubscribeListener, Notific
         actionMode = startSupportActionMode(actionModeCallback)
         adapter.toggleSelection(subscription.id)
 
-            // Fade out FAB
+        // Fade out FAB
         fab.alpha = 1f
         fab
             .animate()
@@ -869,10 +902,6 @@ class MainActivity : AppCompatActivity(), AddFragment.SubscribeListener, Notific
         const val EXTRA_SUBSCRIPTION_MUTED_UNTIL = "subscriptionMutedUntil"
         const val ANIMATION_DURATION = 80L
         const val ONE_DAY_MILLIS = 86400000L
-
-        // As per documentation: The minimum repeat interval that can be defined is 15 minutes
-        // (same as the JobScheduler API), but in practice 15 doesn't work. Using 16 here.
-        // Thanks to varunon9 (https://gist.github.com/varunon9/f2beec0a743c96708eb0ef971a9ff9cd) for this!
 
         const val POLL_WORKER_INTERVAL_MINUTES = 60L
         const val DELETE_WORKER_INTERVAL_MINUTES = 8 * 60L

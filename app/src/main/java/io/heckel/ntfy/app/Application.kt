@@ -8,7 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
-class Application : Application() {
+class  Application : Application() {
     val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val repository by lazy {

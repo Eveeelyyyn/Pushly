@@ -1,5 +1,8 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <style name="AppTheme" parent="Theme.Material3.DayNight.NoActionBar">
+
+        <item name="android:fontFamily">@font/poppins</item>
+
         <item name="colorPrimary">@color/md_theme_primary</item>
         <item name="colorOnPrimary">@color/md_theme_onPrimary</item>
         <item name="colorPrimaryContainer">@color/md_theme_primaryContainer</item>
@@ -16,7 +19,15 @@
         <item name="colorOnError">@color/md_theme_onError</item>
         <item name="colorErrorContainer">@color/md_theme_errorContainer</item>
         <item name="colorOnErrorContainer">@color/md_theme_onErrorContainer</item>
+
+
+        <!-- Cambie esto -->
         <item name="android:colorBackground">@color/md_theme_background</item>
+
+
+        <!-- - - - - - - - - - - - -  -->
+
+
         <item name="colorOnBackground">@color/md_theme_onBackground</item>
         <item name="colorSurface">@color/md_theme_surface</item>
         <item name="colorOnSurface">@color/md_theme_onSurface</item>
@@ -67,10 +78,14 @@
         <item name="android:textColor">?attr/colorError</item>
     </style>
 
-    <style name="FloatingActionButton" parent="@style/Widget.Material3.FloatingActionButton.Primary">
+    <!-- Cambie esta seccion de cod -->
+     <style name="FloatingActionButton" parent="@style/Widget.Material3.FloatingActionButton.Primary">
         <item name="backgroundTint">?attr/colorPrimary</item>
         <item name="tint">?attr/colorOnPrimary</item>
     </style>
+
+    <!-- - - - - - - - - - - - - - - - - - - -  -->
+
 
     <style name="CardView" parent="@style/Widget.Material3.CardView.Elevated" />
 

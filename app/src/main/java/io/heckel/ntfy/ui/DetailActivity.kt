@@ -145,11 +145,23 @@ class DetailActivity : AppCompatActivity(), NotificationFragment.NotificationSet
         notifier = NotificationService(this)
         appBaseUrl = getString(R.string.app_base_url)
 
+
         val toolbarLayout = findViewById<View>(R.id.app_bar_drawer)
+
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+
+
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(toolbarLayout) { view, insets ->
+            val systemBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            view.setPadding(0, systemBars.top, 0, 0)
+            insets
+        }
+
         val dynamicColors = repository.getDynamicColorsEnabled()
         val darkMode = isDarkThemeOn(this)
-        val statusBarColor = Colors.statusBarNormal(this, dynamicColors, darkMode)
-        toolbarLayout.setBackgroundColor(statusBarColor)
+
+        //val statusBarColor = Colors.statusBarNormal(this, dynamicColors, darkMode)
+        //toolbarLayout.setBackgroundColor(statusBarColor)
 
         // Set collapse icon (back arrow when search is expanded) with proper tint
         toolbarTextColor = Colors.toolbarTextColor(this, dynamicColors, darkMode)
@@ -162,7 +174,7 @@ class DetailActivity : AppCompatActivity(), NotificationFragment.NotificationSet
         toolbar.overflowIcon?.setTint(toolbarTextColor)
         toolbar.collapseIcon = collapseIcon
         setSupportActionBar(toolbar)
-        
+
         // Set system status bar appearance
         WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars =
             Colors.shouldUseLightStatusBar(dynamicColors, darkMode)
@@ -310,7 +322,7 @@ class DetailActivity : AppCompatActivity(), NotificationFragment.NotificationSet
         adapter = DetailAdapter(this, lifecycleScope, repository, onNotificationClick, onNotificationLongClick)
         mainList = findViewById(R.id.detail_notification_list)
         mainList.adapter = adapter
-        
+
         // Apply window insets to ensure content is not covered by navigation bar
         mainList.clipToPadding = false
         ViewCompat.setOnApplyWindowInsetsListener(mainList) { v, insets ->
@@ -469,7 +481,7 @@ class DetailActivity : AppCompatActivity(), NotificationFragment.NotificationSet
     private fun publishMessage(message: String) {
         // Disable send button while publishing
         messageBarPublishButton.isEnabled = false
-        
+
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val user = repository.getUser(subscriptionBaseUrl)
@@ -570,7 +582,7 @@ class DetailActivity : AppCompatActivity(), NotificationFragment.NotificationSet
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu_detail_action_bar, menu)
         this.menu = menu
-        
+
         setupSearchView()
         showHideMenuItems()
 
@@ -587,7 +599,7 @@ class DetailActivity : AppCompatActivity(), NotificationFragment.NotificationSet
         searchView?.let { sv ->
             sv.queryHint = getString(R.string.detail_menu_search_hint)
             sv.maxWidth = Integer.MAX_VALUE // Make SearchView expand fully
-            
+
             // Tint SearchView icons and text
             val searchIcon = sv.findViewById<ImageView>(androidx.appcompat.R.id.search_button)
             val closeIcon = sv.findViewById<ImageView>(androidx.appcompat.R.id.search_close_btn)
@@ -596,7 +608,7 @@ class DetailActivity : AppCompatActivity(), NotificationFragment.NotificationSet
             closeIcon?.setColorFilter(toolbarTextColor)
             searchEditText?.setTextColor(toolbarTextColor)
             searchEditText?.setHintTextColor(toolbarTextColor.and(0x80FFFFFF.toInt())) // 50% alpha
-            
+
             // Handle query text changes
             sv.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
                 override fun onQueryTextSubmit(query: String?): Boolean {
@@ -608,7 +620,7 @@ class DetailActivity : AppCompatActivity(), NotificationFragment.NotificationSet
                     return true
                 }
             })
-            
+
             // Handle expand/collapse
             searchItem.setOnActionExpandListener(object : MenuItem.OnActionExpandListener {
                 override fun onMenuItemActionExpand(item: MenuItem): Boolean {
@@ -635,11 +647,11 @@ class DetailActivity : AppCompatActivity(), NotificationFragment.NotificationSet
             for (i in 0 until menu.size) {
                 menu[i].icon?.setTint(toolbarTextColor)
             }
-            
+
             // Ensure collapse icon is tinted (back arrow when search is expanded)
             toolbar.collapseIcon?.setTint(toolbarTextColor)
         }
-        
+
         // Show/hide menu items based on state
         showHideMutedUntilMenuItems()
         showHideCopyMenuItems()

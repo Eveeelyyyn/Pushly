@@ -135,10 +135,23 @@ class MainAdapter(
             }
             itemView.setOnClickListener { onClick(subscription) }
             itemView.setOnLongClickListener { onLongClick(subscription); true }
-            if (selected.contains(subscription.id)) {
+
+            // Cambie esto 10/03/26
+            /*if (selected.contains(subscription.id)) {
                 itemView.setBackgroundColor(Colors.itemSelectedBackground(context))
             } else {
                 itemView.setBackgroundColor(Color.TRANSPARENT)
+            }*/
+
+            val cardView = itemView as com.google.android.material.card.MaterialCardView
+            if (selected.contains(subscription.id)) {
+                // Si está seleccionado, cambiamos el color de la tarjeta
+                cardView.setCardBackgroundColor(Colors.itemSelectedBackground(context))
+            } else {
+                // Si NO está seleccionado, buscamos el color de fondo correcto de tu tema (blanco) y se lo devolvemos
+                val typedValue = android.util.TypedValue()
+                context.theme.resolveAttribute(com.google.android.material.R.attr.colorSurface, typedValue, true)
+                cardView.setCardBackgroundColor(typedValue.data)
             }
         }
     }

@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <color name="md_theme_primary">#338574</color>
+    <!-- <color name="md_theme_primary">#338574</color> -->
+    <color name="md_theme_primary">#45B8AA</color>
     <color name="md_theme_onPrimary">#FFFFFF</color>
-    <color name="md_theme_primaryContainer">#A0F2DD</color>
-    <color name="md_theme_onPrimaryContainer">#005144</color>
+    <!-- <color name="md_theme_primaryContainer">#A0F2DD</color> -->
+    <color name="md_theme_primaryContainer">#7DD8CB</color>
+    <!-- <color name="md_theme_onPrimaryContainer">#005144</color> -->
+    <color name="md_theme_onPrimaryContainer">#003831</color>
+
+
+
     <color name="md_theme_secondary">#4B635C</color>
     <color name="md_theme_onSecondary">#FFFFFF</color>
     <color name="md_theme_secondaryContainer">#CDE8DF</color>
@@ -16,7 +22,10 @@
     <color name="md_theme_onError">#FFFFFF</color>
     <color name="md_theme_errorContainer">#FFDAD6</color>
     <color name="md_theme_onErrorContainer">#93000A</color>
-    <color name="md_theme_background">#FFFFFF</color>
+
+    <!-- <color name="md_theme_background">#FFFFFF</color> -->
+    <color name="md_theme_background">#EBF0F8</color>
+
     <color name="md_theme_onBackground">#171D1B</color>
     <color name="md_theme_surface">#FFFFFF</color>
     <color name="md_theme_onSurface">#171D1B</color>
@@ -142,8 +151,20 @@
     <color name="md_theme_surfaceContainerHigh_highContrast">#CFD6D2</color>
     <color name="md_theme_surfaceContainerHighest_highContrast">#C1C8C5</color>
 
-    <color name="action_bar">#338574</color> <!-- md_theme_primary (light) -->
+    <!-- <color name="action_bar">#338574</color> --> <!-- md_theme_primary (light) -->
+    <color name="action_bar">#45B8AA</color>
     <color name="detail_activity_background">#EEEEEE</color> <!-- Light gray for detail activity in light mode -->
+
+
+    <!-- Add there colors: Agrege este codifo -->
+    <color name="background_light">#EBF0F8</color>
+    <color name="white_card">#FFFFFF</color>
+    <!-- <color name="mint_accent">#80CBC4</color> -->
+    <color name="mint_accent">#7DD8CB</color>
+    <color name="text_primary">#2D3436</color>
+    <color name="text_secondary">#636E72</color>
+    <!-- - - - - - - - - - - - - - - - - - - - - -  -->
+
 
     <!-- Chip colors -->
     <color name="chip_background_color">#E8E8E8</color> <!-- Light gray background -->

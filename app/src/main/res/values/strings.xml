@@ -1,7 +1,13 @@
 <resources xmlns:tools="http://schemas.android.com/tools"
            tools:ignore="MissingTranslation">
 
-    <!-- Common strings -->
+    <!-- Agrege esto: -->
+    <string name="main_summary_title">Resumen de notificaciones</string>
+    <string name="main_summary_subtitle">Notificaciones pendentes</string>
+    <string name="main_topics_subscribed">Grupos Suscritos</string>
+
+
+    <!-- Common strings -->SS
     <string name="common_button_next">Next</string>
     <string name="common_button_add">Add</string>
     <string name="common_button_save">Save</string>

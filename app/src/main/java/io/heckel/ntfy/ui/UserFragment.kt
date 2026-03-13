@@ -45,7 +45,9 @@ class UserFragment : DialogFragment() {
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
-        listener = activity as UserDialogListener
+        if (context is UserDialogListener) {
+            listener = context
+        }
         repository = Repository.getInstance(context)
     }
 
@@ -54,7 +56,6 @@ class UserFragment : DialogFragment() {
             throw IllegalStateException("Activity cannot be null")
         }
 
-        // Reconstruct user (if it is present in the bundle)
         val baseUrl = arguments?.getString(BUNDLE_BASE_URL)
         val username = arguments?.getString(BUNDLE_USERNAME)
         val password = arguments?.getString(BUNDLE_PASSWORD)
@@ -63,17 +64,19 @@ class UserFragment : DialogFragment() {
             user = User(baseUrl, username, password)
         }
 
-        // Required for validation
         baseUrlsInUse = arguments?.getStringArrayList(BUNDLE_BASE_URLS_IN_USE) ?: arrayListOf()
 
-        // Build root view
         val view = requireActivity().layoutInflater.inflate(R.layout.fragment_user_dialog, null)
 
-        // Setup toolbar
+        this.isCancelable = true
         toolbar = view.findViewById(R.id.user_dialog_toolbar)
+        toolbar.navigationIcon = null
+
+        toolbar.setNavigationIcon(R.drawable.ic_close_white_24dp) // Asegúrate que este drawable existe o usa ic_cancel
         toolbar.setNavigationOnClickListener {
-            dismiss()
+            dismiss() // Cierra el fragmento al tocar la X
         }
+
         toolbar.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.user_dialog_action_save -> {
@@ -81,19 +84,31 @@ class UserFragment : DialogFragment() {
                     true
                 }
                 R.id.user_dialog_action_delete -> {
+                    // 1. Limpiar las credenciales guardadas
+                    val prefs = requireContext().getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+                    prefs.edit().clear().apply() // Borra global_username y global_password
+
+                    // 2. Notificar al listener (MainActivity) para que borre de la DB
                     if (this::listener.isInitialized) {
                         listener.onDeleteUser(this, user!!.baseUrl)
                     }
+
+                    // 3. Cerrar el diálogo y avisar que debe mostrarse de nuevo para un nuevo login
                     dismiss()
+
+                    // Opcional: Si quieres que aparezca el login vacío inmediatamente:
+                    val newLogin = UserFragment()
+                    newLogin.show(parentFragmentManager, "UserFragment")
+
                     true
                 }
+
                 else -> false
             }
         }
         saveMenuItem = toolbar.menu.findItem(R.id.user_dialog_action_save)
         deleteMenuItem = toolbar.menu.findItem(R.id.user_dialog_action_delete)
 
-        // Setup views
         descriptionView = view.findViewById(R.id.user_dialog_description)
         baseUrlViewLayout = view.findViewById(R.id.user_dialog_base_url_layout)
         baseUrlView = view.findViewById(R.id.user_dialog_base_url)
@@ -103,7 +118,10 @@ class UserFragment : DialogFragment() {
         if (user == null) {
             toolbar.setTitle(R.string.user_dialog_title_add)
             descriptionView.text = getString(R.string.user_dialog_description_add)
-            baseUrlViewLayout.visibility = View.VISIBLE
+
+            // Aseguramos que el layout de la URL esté oculto para el cliente final
+            baseUrlViewLayout.visibility = View.GONE
+
             passwordView.hint = getString(R.string.user_dialog_password_hint_add)
             saveMenuItem.setTitle(R.string.user_dialog_button_add)
             deleteMenuItem.isVisible = false
@@ -117,7 +135,6 @@ class UserFragment : DialogFragment() {
             deleteMenuItem.isVisible = true
         }
 
-        // Validate input when typing
         val textWatcher = AfterChangedTextWatcher {
             validateInput()
         }
@@ -125,11 +142,9 @@ class UserFragment : DialogFragment() {
         usernameView.addTextChangedListener(textWatcher)
         passwordView.addTextChangedListener(textWatcher)
 
-        // Build dialog
         val dialog = Dialog(requireContext(), R.style.Theme_App_FullScreenDialog)
         dialog.setContentView(view)
 
-        // Initial validation
         validateInput()
 
         return dialog
@@ -138,17 +153,13 @@ class UserFragment : DialogFragment() {
     override fun onStart() {
         super.onStart()
         dialog?.window?.apply {
-            setLayout(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
     }
 
     override fun onResume() {
         super.onResume()
-        // Show keyboard after the dialog is fully visible
-        val focusView = if (user != null) usernameView else baseUrlView
+        val focusView = usernameView
         focusView.postDelayed({
             focusView.requestFocus()
             if (user != null && usernameView.text != null) {
@@ -158,7 +169,6 @@ class UserFragment : DialogFragment() {
             imm?.showSoftInput(focusView, InputMethodManager.SHOW_IMPLICIT)
         }, 200)
     }
-
     private fun saveClicked() {
         if (!this::listener.isInitialized) return
         val baseUrl = baseUrlView.text?.toString() ?: ""
@@ -179,30 +189,69 @@ class UserFragment : DialogFragment() {
     }
 
     private fun validateInput() {
-        if (!this::saveMenuItem.isInitialized) return // As per crash seen in Google Play
+        if (!this::saveMenuItem.isInitialized) return
 
-        val baseUrl = baseUrlView.text?.toString() ?: ""
         val username = usernameView.text?.toString() ?: ""
         val password = passwordView.text?.toString() ?: ""
-        
-        // Clear previous errors
+
         baseUrlViewLayout.error = null
-        
+
+        // Habilitar el botón solo si usuario y contraseña tienen texto
+        saveMenuItem.isEnabled = username.isNotEmpty() && password.isNotEmpty()
+    }
+
+    /* private fun saveClicked() {
+        // Obtenemos la URL de forma segura sin depender del campo de texto
+        val baseUrl = repository.getDefaultBaseUrl() ?: getString(R.string.app_base_url)
+        val username = usernameView.text?.toString() ?: ""
+        val password = passwordView.text?.toString() ?: ""
+
+        if (username.isNotEmpty() && password.isNotEmpty()) {
+            val newUser = User(baseUrl, username, password)
+
+            CoroutineScope(Dispatchers.IO).launch {
+                repository.addUser(newUser)
+            }
+
+            if (this::listener.isInitialized) {
+                if (user == null) {
+                    listener.onAddUser(this, newUser)
+                } else {
+                    listener.onUpdateUser(this, newUser)
+                }
+            }
+            dismiss()
+        }
+    }
+
+    private fun validateInput() {
+        if (!this::saveMenuItem.isInitialized) return
+
+        // Aquí resolvemos el problema: Inyectamos la URL directamente en lugar de buscarla en la vista
+        val baseUrl = user?.baseUrl ?: (repository.getDefaultBaseUrl() ?: getString(R.string.app_base_url))
+
+        val username = usernameView.text?.toString() ?: ""
+        val password = passwordView.text?.toString() ?: ""
+
+        baseUrlViewLayout.error = null
+
         if (user == null) {
             CoroutineScope(Dispatchers.Main).launch {
                 val hasAuthorizationHeader = hasAuthorizationHeader(baseUrl)
                 if (hasAuthorizationHeader) {
                     baseUrlViewLayout.error = getString(R.string.user_dialog_base_url_error_authorization_header_exists)
                 }
+                // Al evaluar una URL válida y no vacía, el botón por fin se habilitará
                 saveMenuItem.isEnabled = validUrl(baseUrl)
                         && !baseUrlsInUse.contains(baseUrl)
                         && !hasAuthorizationHeader
-                        && username.isNotEmpty() && password.isNotEmpty()
+                        && username.isNotEmpty()
+                        && password.isNotEmpty()
             }
         } else {
-            saveMenuItem.isEnabled = username.isNotEmpty() // Unchanged if left blank
+            saveMenuItem.isEnabled = username.isNotEmpty()
         }
-    }
+    } */
 
     private suspend fun hasAuthorizationHeader(baseUrl: String): Boolean {
         if (!this::repository.isInitialized || !validUrl(baseUrl)) {
