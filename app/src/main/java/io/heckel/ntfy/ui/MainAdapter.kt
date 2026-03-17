@@ -114,7 +114,7 @@ class MainAdapter(
             if (subscription.icon != null) {
                 imageView.setImageBitmap(subscription.icon.readBitmapFromUriOrNull(context))
             } else {
-                imageView.setImageResource(R.drawable.ic_sms_gray_24dp)
+                imageView.setImageResource(R.drawable.ic_group)
             }
             nameView.text = displayName(appBaseUrl, subscription)
             statusView.text = statusMessage

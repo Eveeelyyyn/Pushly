@@ -267,18 +267,20 @@
 
                 <TextView
                     android:id="@+id/main_summary_count"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
                     android:background="@drawable/circle_gray_background"
+                    android:fontFamily="@font/iosevka"
                     android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:lineSpacingExtra="0dp"
                     android:text="0"
                     android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="20sp"
+                    android:textSize="22sp"
                     android:textStyle="bold"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
-
                 <TextView
                     android:id="@+id/main_summary_title"
                     android:layout_width="0dp"
@@ -332,7 +334,7 @@
             app:cardBackgroundColor="@android:color/transparent"
             app:cardElevation="0dp"
             app:strokeWidth="0dp"
-            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintBottom_toTopOf="@+id/bottom_bar_image"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/main_card_summary">
@@ -348,7 +350,6 @@
                     android:layout_marginBottom="16dp"
                     android:background="#E0E0E0"/>
 
-
                 <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
                     android:id="@+id/main_subscriptions_list_container"
                     android:layout_width="match_parent"
@@ -360,7 +361,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:clipToPadding="false"
-                        android:paddingBottom="80dp"
+                        android:paddingBottom="8dp"
                         app:layoutManager="LinearLayoutManager" />
                 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
             </LinearLayout>

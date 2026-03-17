@@ -287,6 +287,9 @@ class MainActivity : AppCompatActivity(), AddFragment.SubscribeListener, Notific
                     summaryCountText.setTextColor(android.graphics.Color.WHITE)
                 } else {
                     summaryCountText.backgroundTintList = null // Vuelve al color gris de tu drawable original
+                    summaryCountText.setTextColor(
+                        android.graphics.Color.parseColor("#000000") // o usa ?android:attr/textColorPrimary resuelto
+                    )
                 }
 
                 showHideBatteryBanner(subscriptions)

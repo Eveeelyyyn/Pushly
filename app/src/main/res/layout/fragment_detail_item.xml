@@ -193,7 +193,7 @@
         <ImageView
                 android:layout_width="wrap_content"
                 android:layout_height="0dp"
-                app:srcCompat="@drawable/ic_notification"
+                app:srcCompat="@drawable/ic_notification_mod"
                 android:id="@+id/detail_item_icon"
                 android:visibility="visible"
                 android:maxHeight="40dp"

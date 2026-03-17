@@ -644,7 +644,7 @@ if (androidx.core.content.ContextCompat.checkSelfPermission(
 private fun launchQrScanner() {
 val intent = com.google.zxing.integration.android.IntentIntegrator.forSupportFragment(this).apply {
     setDesiredBarcodeFormats(com.google.zxing.integration.android.IntentIntegrator.QR_CODE)
-    setPrompt("Escanea el QR de un grupo de ntfy")
+    setPrompt("Escanea el QR de un grupo de pushly")
     setBeepEnabled(true)
     setOrientationLocked(false)
     setCaptureActivity(CustomScannerActivity::class.java)

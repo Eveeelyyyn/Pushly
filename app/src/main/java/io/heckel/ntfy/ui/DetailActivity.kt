@@ -199,16 +199,16 @@ class DetailActivity : AppCompatActivity(), NotificationFragment.NotificationSet
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         // Hide links that lead to payments, see https://github.com/binwiederhier/ntfy/issues/1463
-        val howToLink = findViewById<TextView>(R.id.detail_how_to_link)
-        howToLink.isVisible = BuildConfig.PAYMENT_LINKS_AVAILABLE
+        // val howToLink = findViewById<TextView>(R.id.detail_how_to_link)
+        // howToLink.isVisible = BuildConfig.PAYMENT_LINKS_AVAILABLE
 
         // Handle direct deep links to topic "ntfy://..."
-        val url = intent?.data
-        if (intent?.action == ACTION_VIEW && url != null) {
-            maybeSubscribeAndLoadView(url)
-        } else {
-            loadView()
-        }
+        // val url = intent?.data
+        // if (intent?.action == ACTION_VIEW && url != null) {
+        //    maybeSubscribeAndLoadView(url)
+        //} else {
+        //    loadView()
+        //}
     }
 
     private fun maybeSubscribeAndLoadView(url: Uri) {
@@ -334,7 +334,7 @@ class DetailActivity : AppCompatActivity(), NotificationFragment.NotificationSet
         // Observe filtered notifications (filtered by search query)
         val noSearchResultsText: TextView = findViewById(R.id.detail_no_notifications_text)
         val howToIntro: View = findViewById(R.id.detail_how_to_intro)
-        val howToLink: View = findViewById(R.id.detail_how_to_link)
+        // val howToLink: View = findViewById(R.id.detail_how_to_link)
         viewModel.listFiltered(subscriptionId).observe(this) {
             it?.let { notifications ->
                 // Show list view
@@ -347,12 +347,12 @@ class DetailActivity : AppCompatActivity(), NotificationFragment.NotificationSet
                         noSearchResultsText.text = getString(R.string.detail_no_search_results)
                         howToIntro.visibility = View.GONE
                         howToExample.visibility = View.GONE
-                        howToLink.visibility = View.GONE
+                        // howToLink.visibility = View.GONE
                     } else {
                         noSearchResultsText.text = getString(R.string.detail_no_notifications_text)
                         howToIntro.visibility = View.VISIBLE
                         howToExample.visibility = View.VISIBLE
-                        howToLink.visibility = if (BuildConfig.PAYMENT_LINKS_AVAILABLE) View.VISIBLE else View.GONE
+                        // howToLink.visibility = if (BuildConfig.PAYMENT_LINKS_AVAILABLE) View.VISIBLE else View.GONE
                     }
                 } else {
                     mainListContainer.visibility = View.VISIBLE

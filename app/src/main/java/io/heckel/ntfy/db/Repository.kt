@@ -337,7 +337,7 @@ class Repository(private val sharedPrefs: SharedPreferences, database: Database)
     }
 
     fun getDarkMode(): Int {
-        return sharedPrefs.getInt(SHARED_PREFS_DARK_MODE, AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        return sharedPrefs.getInt(SHARED_PREFS_DARK_MODE, AppCompatDelegate.MODE_NIGHT_NO)
     }
 
     fun setDynamicColorsEnabled(enabled: Boolean) {

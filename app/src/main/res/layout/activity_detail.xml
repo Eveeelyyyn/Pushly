@@ -43,12 +43,14 @@
                 app:layoutManager="LinearLayoutManager"/>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-    <LinearLayout
+        <LinearLayout
+            android:id="@+id/detail_no_notifications"
             android:orientation="vertical"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:id="@+id/detail_no_notifications"
-            app:layout_constraintBottom_toTopOf="@id/detail_message_bar"
+            android:gravity="center_horizontal"
+            app:layout_constraintVertical_bias="0.35"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
@@ -80,16 +82,7 @@
                 android:layout_marginTop="7dp"
                 android:layout_marginStart="50dp"
                 android:layout_marginEnd="50dp"/>
-        <TextView
-                android:text="@string/detail_how_to_link"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:id="@+id/detail_how_to_link"
-                android:layout_marginTop="7dp"
-                android:layout_marginStart="50dp"
-                android:layout_marginEnd="50dp"
-                android:linksClickable="true"
-                android:autoLink="web"/>
+
     </LinearLayout>
 
     <include
