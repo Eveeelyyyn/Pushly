@@ -209,6 +209,13 @@ class DetailActivity : AppCompatActivity(), NotificationFragment.NotificationSet
         //} else {
         //    loadView()
         //}
+
+        val url = intent?.data
+        if (intent?.action == ACTION_VIEW && url != null) {
+            maybeSubscribeAndLoadView(url)
+        } else {
+            loadView()
+        }
     }
 
     private fun maybeSubscribeAndLoadView(url: Uri) {
