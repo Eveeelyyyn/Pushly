@@ -14,6 +14,7 @@ Este documento describe el proceso completo para instalar, configurar y administ
 2. [Configuración del Entorno y Autenticación](#2-configuración-del-entorno-y-autenticación)
 3. [Verificación del Estado del Servidor](#3-verificación-del-estado-del-servidor)
 4. [Gestión de Usuarios y Permisos](#4-gestión-de-usuarios-y-permisos)
+5. [Solución de Problemas (Troubleshooting)](#5-solución-de-problemas-(Troubleshooting)) 
 
 ---
 
@@ -101,7 +102,13 @@ server.yml
 y asegúrate de que las siguientes configuraciones estén activas.
 
 ```yaml
-auth-file: "C:\\ProgramData\\ntfy\\user.db"
+base-url: "http://localhost"
+
+# Ruta donde se guardará la base de datos de usuarios y contraseñas
+auth-file: "C:/ntfy/user.db"
+
+# Nivel de acceso por defecto. "deny-all" significa que nadie puede 
+# leer ni escribir en ningún tópico a menos que inicie sesión y tenga permiso.
 auth-default-access: "deny-all"
 ```
 
@@ -277,36 +284,6 @@ notificaciones_app
 
 ---
 
-# Ejemplo de Arquitectura de Uso
-
-Servidor Pushly:
-
-```
-http://tu-servidor
-```
-
-Tópicos posibles:
-
-```
-notificaciones_app
-alertas_sistema
-usuarios
-```
-
-Ejemplo de publicación:
-
-```bash
-curl -d "Nueva notificación" http://tu-servidor/notificaciones_app
-```
-
-Ejemplo de suscripción:
-
-```
-http://tu-servidor/notificaciones_app
-```
-
----
-
 💡 **Ejemplos**
 
 # 1. Enviar un archivo PDF (Recibo/Reporte)
@@ -319,3 +296,55 @@ curl.exe -u "admin_empresa:888" \
 curl.exe -u "admin_empresa:888" \
      -d "Mensaje protegido: El sistema de alertas está activo" \
      http://192.168.8.218/ejemplo
+
+---
+# 🛠️ 5. Solución de Problemas (Troubleshooting)
+
+### ❌ Error: Conflicto de versión de esquema (Schema version conflict) al levantar el servidor
+
+#### 📌 Descripción del problema:
+Al intentar iniciar el servidor, el proceso falla y se detiene mostrando un error de conflicto de esquema en la base de datos.  
+
+Por ejemplo, el log puede indicar que el ejecutable espera una estructura de base de datos de versión **6**, pero los archivos actuales están en la versión **14**.
+
+---
+
+#### ⚠️ ¿Por qué ocurre este error?
+
+Las bases de datos del servidor (como `cache.db` y `user.db` generadas por herramientas como **ntfy**) utilizan una estructura interna llamada **esquema**, la cual se actualiza conforme el software evoluciona.
+
+Este conflicto de versiones ocurre principalmente por:
+
+- **Degradación accidental (Downgrade):**  
+  Se actualizó el servidor en algún momento (modificando la base de datos a una versión más reciente) y posteriormente se intentó ejecutar una versión más antigua del software que no puede leer la nueva estructura.
+
+- **Conflictos de entorno:**  
+  Existen múltiples versiones del ejecutable instaladas en el sistema y se está ejecutando una versión obsoleta por error.
+
+---
+
+#### 🛑 Nota importante:
+Por seguridad, para evitar la corrupción de datos, el servidor aborta el inicio en lugar de intentar forzar la lectura de una base incompatible.
+
+---
+
+## ✅ Soluciones
+
+### 🔧 Opción 1: Reinstalación limpia (Destructiva - Solución rápida)
+
+Si los datos actuales (caché o usuarios locales) **no son críticos** y solo necesitas levantar el servicio rápidamente:
+
+1. Detén el servicio del servidor.
+2. Navega a la ruta de las bases de datos, por ejemplo:
+
+``` C:\ProgramData\ntfy\ ```
+
+3. Elimina o renombra los archivos conflictivos:
+
+```
+cache.db
+user.db
+```
+4. Vuelve a iniciar el servidor.
+
+➡️ Al no encontrar los archivos, el sistema generará automáticamente bases de datos nuevas y c
